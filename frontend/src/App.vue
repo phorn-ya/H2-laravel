@@ -1,7 +1,9 @@
+
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api'
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api'
 
 const categories = ref([])
 const loading = ref(false)
@@ -12,37 +14,43 @@ const editingId = ref(null)
 
 const form = reactive({
   name: '',
-  dec: '',
-  is_active: false,
+  description: '',
+  is_active: true,
 })
 
 const sortedCategories = computed(() => {
-  return [...categories.value].sort((a, b) => Number(b.id) - Number(a.id))
+  return [...categories.value].sort((a, b) => b.id - a.id)
 })
 
-const formTitle = computed(() => (editingId.value ? 'Edit category' : 'Create category'))
-const submitText = computed(() => (editingId.value ? 'Update' : 'Create'))
+const formTitle = computed(() =>
+  editingId.value ? 'Edit Category' : 'Create Category'
+)
+
+const submitText = computed(() =>
+  editingId.value ? 'Update' : 'Create'
+)
 
 function resetForm() {
   editingId.value = null
   form.name = ''
-  form.dec = ''
-  form.is_active = false
+  form.description = ''
+  form.is_active = true
 }
 
 function fillForm(category) {
   editingId.value = category.id
   form.name = category.name || ''
-  form.dec = category.dec || ''
+  form.description = category.description || ''
   form.is_active = Boolean(category.is_active)
-  notice.value = ''
+
   error.value = ''
+  notice.value = ''
 }
 
 function formatDate(value) {
-  if (!value) return 'No date'
+  if (!value) return 'No Date'
 
-  return new Intl.DateTimeFormat('en', {
+  return new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
@@ -61,8 +69,9 @@ async function apiRequest(path, options = {}) {
   const data = await response.json().catch(() => null)
 
   if (!response.ok) {
-    const message = data?.message || `Request failed with status ${response.status}`
-    throw new Error(message)
+    throw new Error(
+      data?.message || `Request failed with status ${response.status}`
+    )
   }
 
   return data
@@ -74,22 +83,33 @@ async function loadCategories() {
 
   try {
     const response = await apiRequest('/categories')
-    categories.value = response.data || []
+
+    console.log('Categories:', response)
+
+    categories.value = Array.isArray(response)
+      ? response
+      : response.data || []
   } catch (err) {
-    error.value = err.message
+    console.error(err)
+    error.value = err.message || 'Failed to load categories'
   } finally {
     loading.value = false
   }
 }
 
 async function submitCategory() {
+  if (!form.name.trim()) {
+    error.value = 'Category name is required'
+    return
+  }
+
   saving.value = true
   error.value = ''
   notice.value = ''
 
   const payload = {
     name: form.name,
-    dec: form.dec,
+    description: form.description,
     is_active: form.is_active,
   }
 
@@ -99,26 +119,32 @@ async function submitCategory() {
         method: 'PUT',
         body: JSON.stringify(payload),
       })
-      notice.value = 'Category updated.'
+
+      notice.value = 'Category updated successfully.'
     } else {
       await apiRequest('/categories', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      notice.value = 'Category created.'
+
+      notice.value = 'Category created successfully.'
     }
 
     resetForm()
     await loadCategories()
   } catch (err) {
-    error.value = err.message
+    console.error(err)
+    error.value = err.message || 'Operation failed'
   } finally {
     saving.value = false
   }
 }
 
 async function deleteCategory(category) {
-  const confirmed = window.confirm(`Delete "${category.name}"?`)
+  const confirmed = window.confirm(
+    `Delete "${category.name}"?`
+  )
+
   if (!confirmed) return
 
   error.value = ''
@@ -128,7 +154,8 @@ async function deleteCategory(category) {
     await apiRequest(`/categories/${category.id}`, {
       method: 'DELETE',
     })
-    notice.value = 'Category deleted.'
+
+    notice.value = 'Category deleted successfully.'
 
     if (editingId.value === category.id) {
       resetForm()
@@ -136,11 +163,14 @@ async function deleteCategory(category) {
 
     await loadCategories()
   } catch (err) {
-    error.value = err.message
+    console.error(err)
+    error.value = err.message || 'Delete failed'
   }
 }
 
-onMounted(loadCategories)
+onMounted(() => {
+  loadCategories()
+})
 </script>
 
 <template>
@@ -165,12 +195,12 @@ onMounted(loadCategories)
 
         <label>
           <span>Name</span>
-          <input v-model.trim="form.name" required type="text" placeholder="Fruit" />
+          <input v-model.trim="form.name" required type="text" placeholder="Category name" />
         </label>
 
         <label>
           <span>Description</span>
-          <textarea v-model.trim="form.dec" rows="4" placeholder="Add category detail"></textarea>
+          <textarea v-model.trim="form.description" rows="4" placeholder="Add category detail"></textarea>
         </label>
 
         <label class="check-row">
@@ -201,7 +231,7 @@ onMounted(loadCategories)
             <div class="category-main">
               <div>
                 <h3>{{ category.name }}</h3>
-                <p>{{ category.dec || 'No description' }}</p>
+                <p>{{ category.description || 'No description' }}</p>
               </div>
               <span :class="['status', category.is_active ? 'active' : 'inactive']">
                 {{ category.is_active ? 'Active' : 'Inactive' }}
